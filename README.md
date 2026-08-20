@@ -7,7 +7,9 @@ A RimWorld 1.6 mod that adds a persistent custom label and selectable icon to ev
 - Custom text and one of five built-in icons for each map.
 - Persistent settings stored with the map in the save file.
 - Optional labels that appear only while hovering.
+- Optional label that remains visible for the active map.
 - Optional compact, fixed-size map tabs whose width does not depend on pawn count.
+- Optional native pawn portraits for the active map while inactive maps remain compact.
 - Left-click to switch maps and right-click to customize a tab in compact mode.
 - English and French translations.
 - Automatic compatibility with `[LTO] Colony Groups`, including its native group controls.

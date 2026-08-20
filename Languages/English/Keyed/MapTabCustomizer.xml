@@ -17,4 +17,8 @@
   <MTC_ReplacePawnPortraits>Replace pawn portraits with fixed-size map tabs</MTC_ReplacePawnPortraits>
   <MTC_ReplacePawnPortraitsDesc>Replace the colonist bar with one compact, fixed-size tab per map, using the selected map icon. Tab size no longer depends on pawn count.</MTC_ReplacePawnPortraitsDesc>
   <MTC_CompactTabHint>Left-click to open this map. Right-click to customize its tab.</MTC_CompactTabHint>
+  <MTC_ShowActiveMapPawns>Show the active map's normal pawn portraits</MTC_ShowActiveMapPawns>
+  <MTC_ShowActiveMapPawnsDesc>In fixed-size mode, restore the native pawn portraits for the active map. Inactive maps remain compact icon tabs.</MTC_ShowActiveMapPawnsDesc>
+  <MTC_AlwaysShowActiveLabel>Always show the active map's label</MTC_AlwaysShowActiveLabel>
+  <MTC_AlwaysShowActiveLabelDesc>Keep the active map's label and icon visible even when labels are configured to appear only on hover.</MTC_AlwaysShowActiveLabelDesc>
 </LanguageData>

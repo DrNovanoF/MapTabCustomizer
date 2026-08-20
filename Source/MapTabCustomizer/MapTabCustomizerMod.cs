@@ -30,16 +30,11 @@ namespace MapTabCustomizer
 
         private static bool Prefix()
         {
-            return LtoColonyGroupsCompatibility.Active || !MapTabRenderer.UseCompactMapTabs;
+            return true;
         }
 
         private static void Postfix(ColonistBar __instance)
         {
-            if (!LtoColonyGroupsCompatibility.Active && MapTabRenderer.UseCompactMapTabs)
-            {
-                MapTabRenderer.DrawCompactMapTabs();
-                return;
-            }
             if (LtoColonyGroupsCompatibility.Active || Find.CurrentMap == null) return;
 
             IEnumerable<IGrouping<int, ColonistBar.Entry>> mapGroups = __instance.Entries
@@ -56,10 +51,36 @@ namespace MapTabCustomizer
         }
     }
 
+    [HarmonyPatch(typeof(ColonistBar), "CheckRecacheEntries")]
+    internal static class VanillaColonistBarRecachePatch
+    {
+        private static void Postfix(ColonistBar __instance)
+        {
+            if (LtoColonyGroupsCompatibility.Active || !MapTabRenderer.UseCompactMapTabs) return;
+            MapTabRenderer.CompactEntries(__instance.Entries);
+        }
+    }
+
     internal static class MapTabRenderer
     {
         internal static bool UseCompactMapTabs => MapTabCustomizerMod.Settings != null &&
                                                   MapTabCustomizerMod.Settings.ReplacePawnPortraitsWithIcon;
+        internal static bool ShowActiveMapPawns => MapTabCustomizerMod.Settings != null &&
+                                                   MapTabCustomizerMod.Settings.ShowActiveMapPawns;
+
+        internal static void CompactEntries(IList entries)
+        {
+            if (entries == null) return;
+            HashSet<Map> seenMaps = new HashSet<Map>();
+            for (int index = entries.Count - 1; index >= 0; index--)
+            {
+                object entry = entries[index];
+                FieldInfo mapField = AccessTools.Field(entry.GetType(), "map");
+                Map map = mapField?.GetValue(entry) as Map;
+                if (map == null || (ShowActiveMapPawns && map == Find.CurrentMap)) continue;
+                if (!seenMaps.Add(map)) entries.RemoveAt(index);
+            }
+        }
 
         internal static void NotifyLayoutChanged()
         {
@@ -113,7 +134,8 @@ namespace MapTabCustomizer
 
             bool showLabel = !customization.CustomLabel.NullOrEmpty() &&
                              (MapTabCustomizerMod.Settings == null ||
-                              !MapTabCustomizerMod.Settings.ShowOnlyOnHover || hovered);
+                              !MapTabCustomizerMod.Settings.ShowOnlyOnHover || hovered ||
+                              (MapTabCustomizerMod.Settings.AlwaysShowActiveLabel && map == Find.CurrentMap));
             if (showLabel)
             {
                 Text.Anchor = TextAnchor.MiddleCenter;
@@ -147,11 +169,15 @@ namespace MapTabCustomizer
             Rect editArea = new Rect(groupRect.x, groupRect.yMax + 2f, Mathf.Max(groupRect.width, width), 22f);
             Rect clickArea = new Rect(groupRect.x, groupRect.y, Mathf.Max(groupRect.width, width), groupRect.height + 24f);
             bool hovered = Mouse.IsOver(clickArea);
+            bool forceActiveLabel = MapTabCustomizerMod.Settings != null &&
+                                    MapTabCustomizerMod.Settings.AlwaysShowActiveLabel &&
+                                    map == Find.CurrentMap;
             bool showCustomization = MapTabCustomizerMod.Settings == null ||
-                                     !MapTabCustomizerMod.Settings.ShowOnlyOnHover || hovered;
+                                     !MapTabCustomizerMod.Settings.ShowOnlyOnHover || hovered || forceActiveLabel;
 
-            if (icon != null && MapTabCustomizerMod.Settings != null &&
-                MapTabCustomizerMod.Settings.ReplacePawnPortraitsWithIcon)
+            bool replaceThisMap = UseCompactMapTabs &&
+                                  (!ShowActiveMapPawns || map != Find.CurrentMap);
+            if (icon != null && replaceThisMap)
             {
                 DrawIconReplacement(groupRect, icon);
             }
@@ -275,16 +301,7 @@ namespace MapTabCustomizer
         {
             if (!MapTabRenderer.UseCompactMapTabs) return;
             IList entries = cachedEntriesField.GetValue(__instance) as IList;
-            if (entries == null) return;
-
-            HashSet<Map> seenMaps = new HashSet<Map>();
-            for (int index = entries.Count - 1; index >= 0; index--)
-            {
-                object entry = entries[index];
-                Map map = entryMapField.GetValue(entry) as Map;
-                if (map == null) continue;
-                if (!seenMaps.Add(map)) entries.RemoveAt(index);
-            }
+            MapTabRenderer.CompactEntries(entries);
         }
 
         internal static void MarkColonistsDirty()

@@ -7,11 +7,15 @@ namespace MapTabCustomizer
     {
         internal bool ShowOnlyOnHover;
         internal bool ReplacePawnPortraitsWithIcon;
+        internal bool ShowActiveMapPawns;
+        internal bool AlwaysShowActiveLabel;
 
         public override void ExposeData()
         {
             Scribe_Values.Look(ref ShowOnlyOnHover, "showOnlyOnHover", false);
             Scribe_Values.Look(ref ReplacePawnPortraitsWithIcon, "replacePawnPortraitsWithIcon", false);
+            Scribe_Values.Look(ref ShowActiveMapPawns, "showActiveMapPawns", false);
+            Scribe_Values.Look(ref AlwaysShowActiveLabel, "alwaysShowActiveLabel", false);
             base.ExposeData();
         }
     }
@@ -39,12 +43,25 @@ namespace MapTabCustomizer
                 ref Settings.ShowOnlyOnHover,
                 "MTC_ShowOnlyOnHoverDesc".Translate());
             listing.Gap();
+            listing.CheckboxLabeled(
+                "MTC_AlwaysShowActiveLabel".Translate(),
+                ref Settings.AlwaysShowActiveLabel,
+                "MTC_AlwaysShowActiveLabelDesc".Translate());
+            listing.Gap();
             bool previousCompactMode = Settings.ReplacePawnPortraitsWithIcon;
             listing.CheckboxLabeled(
                 "MTC_ReplacePawnPortraits".Translate(),
                 ref Settings.ReplacePawnPortraitsWithIcon,
                 "MTC_ReplacePawnPortraitsDesc".Translate());
             if (previousCompactMode != Settings.ReplacePawnPortraitsWithIcon)
+                MapTabRenderer.NotifyLayoutChanged();
+            listing.Gap();
+            bool previousActiveMapMode = Settings.ShowActiveMapPawns;
+            listing.CheckboxLabeled(
+                "MTC_ShowActiveMapPawns".Translate(),
+                ref Settings.ShowActiveMapPawns,
+                "MTC_ShowActiveMapPawnsDesc".Translate());
+            if (previousActiveMapMode != Settings.ShowActiveMapPawns)
                 MapTabRenderer.NotifyLayoutChanged();
             listing.End();
         }
