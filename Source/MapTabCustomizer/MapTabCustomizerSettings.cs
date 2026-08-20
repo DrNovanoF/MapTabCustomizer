@@ -9,6 +9,8 @@ namespace MapTabCustomizer
         internal bool ReplacePawnPortraitsWithIcon;
         internal bool ShowActiveMapPawns;
         internal bool AlwaysShowActiveLabel;
+        internal bool HideLtoButtons;
+        internal bool ShowOnlyActiveLtoButtons;
 
         public override void ExposeData()
         {
@@ -16,6 +18,8 @@ namespace MapTabCustomizer
             Scribe_Values.Look(ref ReplacePawnPortraitsWithIcon, "replacePawnPortraitsWithIcon", false);
             Scribe_Values.Look(ref ShowActiveMapPawns, "showActiveMapPawns", false);
             Scribe_Values.Look(ref AlwaysShowActiveLabel, "alwaysShowActiveLabel", false);
+            Scribe_Values.Look(ref HideLtoButtons, "hideLtoButtons", false);
+            Scribe_Values.Look(ref ShowOnlyActiveLtoButtons, "showOnlyActiveLtoButtons", false);
             base.ExposeData();
         }
     }
@@ -62,6 +66,21 @@ namespace MapTabCustomizer
                 ref Settings.ShowActiveMapPawns,
                 "MTC_ShowActiveMapPawnsDesc".Translate());
             if (previousActiveMapMode != Settings.ShowActiveMapPawns)
+                MapTabRenderer.NotifyLayoutChanged();
+            listing.GapLine();
+            listing.Label("MTC_LtoOptions".Translate());
+            bool previousHideLtoButtons = Settings.HideLtoButtons;
+            listing.CheckboxLabeled(
+                "MTC_HideLtoButtons".Translate(),
+                ref Settings.HideLtoButtons,
+                "MTC_HideLtoButtonsDesc".Translate());
+            bool previousActiveLtoButtons = Settings.ShowOnlyActiveLtoButtons;
+            listing.CheckboxLabeled(
+                "MTC_ShowOnlyActiveLtoButtons".Translate(),
+                ref Settings.ShowOnlyActiveLtoButtons,
+                "MTC_ShowOnlyActiveLtoButtonsDesc".Translate());
+            if (previousHideLtoButtons != Settings.HideLtoButtons ||
+                previousActiveLtoButtons != Settings.ShowOnlyActiveLtoButtons)
                 MapTabRenderer.NotifyLayoutChanged();
             listing.End();
         }

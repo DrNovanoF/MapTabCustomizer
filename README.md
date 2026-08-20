@@ -13,6 +13,7 @@ A RimWorld 1.6 mod that adds a persistent custom label and selectable icon to ev
 - Left-click to switch maps and right-click to customize a tab in compact mode.
 - English and French translations.
 - Automatic compatibility with `[LTO] Colony Groups`, including its native group controls.
+- Options to hide all LTO group controls or show only those belonging to the active map.
 
 ## Installation
 

@@ -250,6 +250,7 @@ namespace MapTabCustomizer
             groupFrameRectMethod = AccessTools.Method(drawerType, "GroupFrameRect");
             MethodInfo onGui = AccessTools.Method(barType, "ColonistBarOnGUI");
             MethodInfo checkRecacheEntries = AccessTools.Method(barType, "CheckRecacheEntries");
+            MethodInfo handleGroupingClicks = AccessTools.Method(barType, "HandleGroupingClicks");
             markColonistsDirtyMethod = AccessTools.Method(barType, "MarkColonistsDirty");
             cachedEntriesField = AccessTools.Field(barType, "cachedEntries");
             if (entriesProperty == null || entryMapField == null || entryGroupField == null ||
@@ -262,8 +263,69 @@ namespace MapTabCustomizer
                     AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldRunLtoBar))));
             harmony.Patch(checkRecacheEntries, postfix: new HarmonyMethod(
                 AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(CompactLtoEntries))));
+            if (handleGroupingClicks != null)
+                harmony.Patch(handleGroupingClicks, prefix: new HarmonyMethod(
+                    AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldHandleLtoGroupingClicks))));
+            PatchLtoGroupDrawing(harmony, "TacticalGroups.ColonistGroup");
+            PatchLtoGroupDrawing(harmony, "TacticalGroups.ColonyGroup");
+            PatchLtoGroupDrawing(harmony, "TacticalGroups.PawnGroup");
+            PatchLtoGroupDrawing(harmony, "TacticalGroups.CaravanGroup");
+            PatchLtoGroupMetrics(harmony);
             Active = true;
             Log.Message("[Map Tab Customizer] [LTO] Colony Groups detected; compatibility renderer enabled.");
+        }
+
+        private static void PatchLtoGroupDrawing(Harmony harmony, string typeName)
+        {
+            System.Type groupType = AccessTools.TypeByName(typeName);
+            if (groupType == null) return;
+            HarmonyMethod prefix = new HarmonyMethod(
+                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldDrawLtoGroup)));
+            MethodInfo draw = AccessTools.Method(groupType, "Draw", new[] { typeof(Rect) });
+            MethodInfo drawOverlays = AccessTools.Method(groupType, "DrawOverlays", new[] { typeof(Rect) });
+            if (draw != null && draw.DeclaringType == groupType) harmony.Patch(draw, prefix: prefix);
+            if (drawOverlays != null && drawOverlays.DeclaringType == groupType)
+                harmony.Patch(drawOverlays, prefix: prefix);
+        }
+
+        private static void PatchLtoGroupMetrics(Harmony harmony)
+        {
+            System.Type groupType = AccessTools.TypeByName("TacticalGroups.ColonistGroup");
+            if (groupType == null) return;
+            HarmonyMethod postfix = new HarmonyMethod(
+                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(AdjustLtoGroupMetric)));
+            foreach (string propertyName in new[] { "GroupIconWidth", "GroupIconHeight", "GroupIconMargin" })
+            {
+                MethodInfo getter = AccessTools.PropertyGetter(groupType, propertyName);
+                if (getter != null) harmony.Patch(getter, postfix: postfix);
+            }
+        }
+
+        private static bool ShouldDrawLtoGroup(object __instance)
+        {
+            return ShouldShowLtoGroup(__instance);
+        }
+
+        private static void AdjustLtoGroupMetric(object __instance, ref float __result)
+        {
+            if (!ShouldShowLtoGroup(__instance)) __result = 0f;
+        }
+
+        private static bool ShouldShowLtoGroup(object group)
+        {
+            MapTabCustomizerSettings settings = MapTabCustomizerMod.Settings;
+            if (settings == null) return true;
+            if (settings.HideLtoButtons) return false;
+            if (!settings.ShowOnlyActiveLtoButtons) return true;
+
+            PropertyInfo mapProperty = AccessTools.Property(group.GetType(), "Map");
+            Map map = mapProperty?.GetValue(group, null) as Map;
+            return map != null && map == Find.CurrentMap;
+        }
+
+        private static bool ShouldHandleLtoGroupingClicks()
+        {
+            return MapTabCustomizerMod.Settings == null || !MapTabCustomizerMod.Settings.HideLtoButtons;
         }
 
         private static bool ShouldRunLtoBar()

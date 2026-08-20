@@ -21,4 +21,9 @@
   <MTC_ShowActiveMapPawnsDesc>En mode taille fixe, restaure les portraits natifs des pawns pour la map active. Les maps inactives restent des onglets compacts avec icône.</MTC_ShowActiveMapPawnsDesc>
   <MTC_AlwaysShowActiveLabel>Toujours afficher le label de la map active</MTC_AlwaysShowActiveLabel>
   <MTC_AlwaysShowActiveLabelDesc>Maintient le texte et l’icône de la map active visibles même lorsque les labels ne doivent apparaître qu’au survol.</MTC_AlwaysShowActiveLabelDesc>
+  <MTC_LtoOptions>LTO Colony Groups</MTC_LtoOptions>
+  <MTC_HideLtoButtons>Masquer tous les boutons LTO Colony Groups</MTC_HideLtoButtons>
+  <MTC_HideLtoButtonsDesc>Masque complètement les boutons de groupes de Colony Groups. Ce réglage est prioritaire sur l’affichage limité à la map active.</MTC_HideLtoButtonsDesc>
+  <MTC_ShowOnlyActiveLtoButtons>Afficher les boutons LTO uniquement pour la map active</MTC_ShowOnlyActiveLtoButtons>
+  <MTC_ShowOnlyActiveLtoButtonsDesc>Masque les boutons Colony Groups appartenant aux maps inactives. Sans effet lorsque tous les boutons LTO sont masqués.</MTC_ShowOnlyActiveLtoButtonsDesc>
 </LanguageData>
