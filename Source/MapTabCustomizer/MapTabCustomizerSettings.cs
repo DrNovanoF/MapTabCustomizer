@@ -14,7 +14,7 @@ namespace MapTabCustomizer
         internal bool HideIconInLabel;
         internal Color TextColor = Color.white;
         internal Color IconColor = Color.white;
-        internal Color BackgroundColor = new Color(0.10f, 0.10f, 0.10f, 0.96f);
+        internal Color TabBackgroundColor = new Color(0.10f, 0.10f, 0.10f, 0.96f);
         internal Color LabelBackgroundColor = new Color(0.10f, 0.10f, 0.10f, 0.96f);
         internal Color IconBackgroundColor = new Color(0.14f, 0.14f, 0.14f, 1f);
 
@@ -29,7 +29,7 @@ namespace MapTabCustomizer
             Scribe_Values.Look(ref HideIconInLabel, "hideIconInLabel", false);
             Scribe_Values.Look(ref TextColor, "textColor", Color.white);
             Scribe_Values.Look(ref IconColor, "iconColor", Color.white);
-            Scribe_Values.Look(ref BackgroundColor, "backgroundColor", new Color(0.10f, 0.10f, 0.10f, 0.96f));
+            Scribe_Values.Look(ref TabBackgroundColor, "backgroundColor", new Color(0.10f, 0.10f, 0.10f, 0.96f));
             Scribe_Values.Look(ref LabelBackgroundColor, "labelBackgroundColor", new Color(0.10f, 0.10f, 0.10f, 0.96f));
             Scribe_Values.Look(ref IconBackgroundColor, "iconBackgroundColor", new Color(0.14f, 0.14f, 0.14f, 1f));
             base.ExposeData();
@@ -81,10 +81,13 @@ namespace MapTabCustomizer
                 MapTabRenderer.NotifyLayoutChanged();
             listing.Gap();
             bool previousActiveMapMode = Settings.ShowActiveMapPawns;
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = previousEnabled && Settings.ReplacePawnPortraitsWithIcon;
             listing.CheckboxLabeled(
                 "MTC_ShowActiveMapPawns".Translate(),
                 ref Settings.ShowActiveMapPawns,
                 "MTC_ShowActiveMapPawnsDesc".Translate());
+            GUI.enabled = previousEnabled;
             if (previousActiveMapMode != Settings.ShowActiveMapPawns)
                 MapTabRenderer.NotifyLayoutChanged();
             listing.GapLine();
@@ -95,10 +98,13 @@ namespace MapTabCustomizer
                 ref Settings.HideLtoButtons,
                 "MTC_HideLtoButtonsDesc".Translate());
             bool previousActiveLtoButtons = Settings.ShowOnlyActiveLtoButtons;
+            previousEnabled = GUI.enabled;
+            GUI.enabled = previousEnabled && LtoColonyGroupsCompatibility.Active && !Settings.HideLtoButtons;
             listing.CheckboxLabeled(
                 "MTC_ShowOnlyActiveLtoButtons".Translate(),
                 ref Settings.ShowOnlyActiveLtoButtons,
                 "MTC_ShowOnlyActiveLtoButtonsDesc".Translate());
+            GUI.enabled = previousEnabled;
             if (previousHideLtoButtons != Settings.HideLtoButtons ||
                 previousActiveLtoButtons != Settings.ShowOnlyActiveLtoButtons)
                 MapTabRenderer.NotifyLayoutChanged();
@@ -108,7 +114,7 @@ namespace MapTabCustomizer
             DrawColorControls(listing, "MTC_IconColor".Translate(), ref Settings.IconColor, false);
             DrawColorControls(listing, "MTC_LabelBackgroundColor".Translate(), ref Settings.LabelBackgroundColor, true);
             DrawColorControls(listing, "MTC_IconBackgroundColor".Translate(), ref Settings.IconBackgroundColor, true);
-            DrawColorControls(listing, "MTC_TabBackgroundColor".Translate(), ref Settings.BackgroundColor, true);
+            DrawColorControls(listing, "MTC_TabBackgroundColor".Translate(), ref Settings.TabBackgroundColor, true);
             listing.End();
             Widgets.EndScrollView();
         }

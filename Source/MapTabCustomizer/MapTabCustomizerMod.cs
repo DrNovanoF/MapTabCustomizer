@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Collections;
-using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using RimWorld;
@@ -16,7 +15,17 @@ namespace MapTabCustomizer
         {
             Harmony harmony = new Harmony("cleme.maptabcustomizer");
             harmony.PatchAll();
-            LtoColonyGroupsCompatibility.TryPatch(harmony);
+            Harmony ltoHarmony = new Harmony("cleme.maptabcustomizer.lto");
+            try
+            {
+                LtoColonyGroupsCompatibility.TryPatch(ltoHarmony);
+            }
+            catch (System.Exception exception)
+            {
+                ltoHarmony.UnpatchAll(ltoHarmony.Id);
+                Log.Error("[Map Tab Customizer] [LTO] Compatibility could not be enabled. " +
+                          "The vanilla colonist bar will remain available.\n" + exception);
+            }
         }
     }
 
@@ -28,28 +37,29 @@ namespace MapTabCustomizer
         private static readonly FastInvokeHandler GroupFrameRect =
             MethodInvoker.GetHandler(AccessTools.Method(typeof(ColonistBarColonistDrawer), "GroupFrameRect"));
 
-        private static bool Prefix()
-        {
-            return true;
-        }
-
         private static void Postfix(ColonistBar __instance)
         {
             if (LtoColonyGroupsCompatibility.Active || Find.CurrentMap == null) return;
 
-            IEnumerable<IGrouping<int, ColonistBar.Entry>> mapGroups = __instance.Entries
-                .Where(entry => entry.map != null)
-                .GroupBy(entry => entry.group);
+            Dictionary<int, Map> mapsByGroup = new Dictionary<int, Map>();
+            foreach (ColonistBar.Entry entry in __instance.Entries)
+                if (entry.map != null && !mapsByGroup.ContainsKey(entry.group))
+                    mapsByGroup.Add(entry.group, entry.map);
 
             MapTabRenderer.BeginCustomizationPass();
-            foreach (IGrouping<int, ColonistBar.Entry> group in mapGroups)
+            try
             {
-                Map map = group.First().map;
-                MapTabCustomizationComponent customization = map.GetComponent<MapTabCustomizationComponent>();
-                Rect groupRect = (Rect)GroupFrameRect(Drawer(__instance), new object[] { group.Key });
-                MapTabRenderer.DrawCustomization(map, customization, groupRect);
+                foreach (KeyValuePair<int, Map> pair in mapsByGroup)
+                {
+                    MapTabCustomizationComponent customization = pair.Value.GetComponent<MapTabCustomizationComponent>();
+                    Rect groupRect = (Rect)GroupFrameRect(Drawer(__instance), new object[] { pair.Key });
+                    MapTabRenderer.DrawCustomization(pair.Value, customization, groupRect);
+                }
             }
-            MapTabRenderer.EndCustomizationPass();
+            finally
+            {
+                MapTabRenderer.EndCustomizationPass();
+            }
         }
     }
 
@@ -100,10 +110,14 @@ namespace MapTabCustomizer
         private static Rect pendingHoveredLabelRect;
         private static string pendingHoveredLabelText;
         private static Texture2D pendingHoveredLabelIcon;
+        private static readonly Dictionary<System.Type, FieldInfo> EntryMapFields =
+            new Dictionary<System.Type, FieldInfo>();
 
         internal static void BeginCustomizationPass()
         {
             hasPendingHoveredLabel = false;
+            if (expandedHoverMap != null && (Find.Maps == null || !Find.Maps.Contains(expandedHoverMap)))
+                expandedHoverMap = null;
         }
 
         internal static void EndCustomizationPass()
@@ -130,7 +144,12 @@ namespace MapTabCustomizer
             for (int index = entries.Count - 1; index >= 0; index--)
             {
                 object entry = entries[index];
-                FieldInfo mapField = AccessTools.Field(entry.GetType(), "map");
+                System.Type entryType = entry.GetType();
+                if (!EntryMapFields.TryGetValue(entryType, out FieldInfo mapField))
+                {
+                    mapField = AccessTools.Field(entryType, "map");
+                    EntryMapFields.Add(entryType, mapField);
+                }
                 Map map = mapField?.GetValue(entry) as Map;
                 if (map == null || (ShowActiveMapPawns && map == Find.CurrentMap)) continue;
                 if (!seenMaps.Add(map)) entries.RemoveAt(index);
@@ -141,78 +160,6 @@ namespace MapTabCustomizer
         {
             Find.ColonistBar?.MarkColonistsDirty();
             LtoColonyGroupsCompatibility.MarkColonistsDirty();
-        }
-
-        internal static void DrawCompactMapTabs()
-        {
-            if (Find.Maps == null || Find.Maps.Count == 0) return;
-            const float tabWidth = 74f;
-            const float tabHeight = 58f;
-            const float spacing = 6f;
-            int mapCount = Find.Maps.Count;
-            float totalWidth = mapCount * tabWidth + Mathf.Max(0, mapCount - 1) * spacing;
-            float x = (UI.screenWidth - totalWidth) / 2f;
-            float y = 21f;
-
-            foreach (Map map in Find.Maps)
-            {
-                Rect tabRect = new Rect(x, y, tabWidth, tabHeight);
-                DrawCompactMapTab(map, tabRect);
-                x += tabWidth + spacing;
-            }
-        }
-
-        private static void DrawCompactMapTab(Map map, Rect tabRect)
-        {
-            MapTabCustomizationComponent customization = map.GetComponent<MapTabCustomizationComponent>();
-            Texture2D icon = MapTabIcons.Get(customization.IconIndex);
-            bool hovered = Mouse.IsOver(tabRect);
-            Color background = map == Find.CurrentMap
-                ? new Color(0.28f, 0.34f, 0.40f, 0.98f)
-                : hovered
-                    ? new Color(0.20f, 0.20f, 0.20f, 0.98f)
-                    : new Color(0.10f, 0.10f, 0.10f, 0.96f);
-            Widgets.DrawBoxSolid(tabRect, background);
-            Widgets.DrawBox(tabRect, map == Find.CurrentMap ? 2 : 1);
-
-            if (icon != null)
-            {
-                DrawTintedIcon(new Rect(tabRect.center.x - 18f, tabRect.y + 5f, 36f, 36f), icon);
-            }
-            else
-            {
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(new Rect(tabRect.x, tabRect.y + 4f, tabRect.width, 34f), "?");
-                Text.Anchor = TextAnchor.UpperLeft;
-            }
-
-            bool showLabel = !customization.CustomLabel.NullOrEmpty() &&
-                             (MapTabCustomizerMod.Settings == null ||
-                              !MapTabCustomizerMod.Settings.ShowOnlyOnHover || hovered ||
-                              (MapTabCustomizerMod.Settings.AlwaysShowActiveLabel && map == Find.CurrentMap));
-            if (showLabel)
-            {
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Text.Font = GameFont.Tiny;
-                Widgets.Label(new Rect(tabRect.x + 3f, tabRect.yMax - 18f, tabRect.width - 6f, 16f),
-                    customization.CustomLabel);
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-            }
-
-            if (hovered) TooltipHandler.TipRegion(tabRect, "MTC_CompactTabHint".Translate());
-            Event current = Event.current;
-            if (current.type != EventType.MouseDown || !tabRect.Contains(current.mousePosition)) return;
-            if (current.button == 0)
-            {
-                Current.Game.CurrentMap = map;
-                current.Use();
-            }
-            else if (current.button == 1)
-            {
-                Find.WindowStack.Add(new Dialog_EditMapTab(map));
-                current.Use();
-            }
         }
 
         internal static void DrawCustomization(Map map, MapTabCustomizationComponent customization, Rect groupRect)
@@ -319,7 +266,7 @@ namespace MapTabCustomizer
                                                             new Color(0.10f, 0.10f, 0.10f, 0.96f);
         private static Color DisplayIconBackgroundColor => MapTabCustomizerMod.Settings?.IconBackgroundColor ??
                                                            new Color(0.14f, 0.14f, 0.14f, 1f);
-        private static Color DisplayTabBackgroundColor => MapTabCustomizerMod.Settings?.BackgroundColor ??
+        private static Color DisplayTabBackgroundColor => MapTabCustomizerMod.Settings?.TabBackgroundColor ??
                                                           new Color(0.10f, 0.10f, 0.10f, 0.96f);
 
         private static void DrawTintedIcon(Rect rect, Texture2D icon)
@@ -342,6 +289,9 @@ namespace MapTabCustomizer
         private static MethodInfo groupFrameRectMethod;
         private static MethodInfo markColonistsDirtyMethod;
         private static FieldInfo cachedEntriesField;
+        private static FieldInfo tacticalColonistBarField;
+        private static readonly Dictionary<System.Type, PropertyInfo> GroupMapProperties =
+            new Dictionary<System.Type, PropertyInfo>();
 
         internal static void TryPatch(Harmony harmony)
         {
@@ -361,14 +311,16 @@ namespace MapTabCustomizer
             MethodInfo drawLtoColonist = AccessTools.Method(drawerType, "DrawColonist");
             markColonistsDirtyMethod = AccessTools.Method(barType, "MarkColonistsDirty");
             cachedEntriesField = AccessTools.Field(barType, "cachedEntries");
+            System.Type tacticUtils = AccessTools.TypeByName("TacticalGroups.TacticUtils");
+            tacticalColonistBarField = tacticUtils == null
+                ? null
+                : AccessTools.Field(tacticUtils, "TacticalColonistBar");
             if (entriesProperty == null || entryMapField == null || entryGroupField == null ||
                 drawerField == null || groupFrameRectMethod == null || onGui == null ||
                 checkRecacheEntries == null || cachedEntriesField == null) return;
 
             harmony.Patch(onGui, postfix: new HarmonyMethod(
-                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(DrawLtoMapTabs))),
-                prefix: new HarmonyMethod(
-                    AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldRunLtoBar))));
+                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(DrawLtoMapTabs))));
             harmony.Patch(checkRecacheEntries, postfix: new HarmonyMethod(
                 AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(CompactLtoEntries))));
             if (handleGroupingClicks != null)
@@ -430,7 +382,12 @@ namespace MapTabCustomizer
             if (settings.HideLtoButtons) return false;
             if (!settings.ShowOnlyActiveLtoButtons) return true;
 
-            PropertyInfo mapProperty = AccessTools.Property(group.GetType(), "Map");
+            System.Type groupType = group.GetType();
+            if (!GroupMapProperties.TryGetValue(groupType, out PropertyInfo mapProperty))
+            {
+                mapProperty = AccessTools.Property(groupType, "Map");
+                GroupMapProperties.Add(groupType, mapProperty);
+            }
             Map map = mapProperty?.GetValue(group, null) as Map;
             return map != null && map == Find.CurrentMap;
         }
@@ -443,11 +400,6 @@ namespace MapTabCustomizer
         private static bool ShouldDrawLtoColonist(Map __2)
         {
             return !MapTabRenderer.ShouldReplaceMap(__2);
-        }
-
-        private static bool ShouldRunLtoBar()
-        {
-            return true;
         }
 
         private static void DrawLtoMapTabs(object __instance)
@@ -467,15 +419,21 @@ namespace MapTabCustomizer
             }
 
             MapTabRenderer.BeginCustomizationPass();
-            foreach (KeyValuePair<int, Map> pair in mapsByGroup)
+            try
             {
-                Rect rect = (Rect)groupFrameRectMethod.Invoke(drawer, new object[] { pair.Key });
-                MapTabRenderer.DrawCustomization(
-                    pair.Value,
-                    pair.Value.GetComponent<MapTabCustomizationComponent>(),
-                    rect);
+                foreach (KeyValuePair<int, Map> pair in mapsByGroup)
+                {
+                    Rect rect = (Rect)groupFrameRectMethod.Invoke(drawer, new object[] { pair.Key });
+                    MapTabRenderer.DrawCustomization(
+                        pair.Value,
+                        pair.Value.GetComponent<MapTabCustomizationComponent>(),
+                        rect);
+                }
             }
-            MapTabRenderer.EndCustomizationPass();
+            finally
+            {
+                MapTabRenderer.EndCustomizationPass();
+            }
         }
 
         private static void CompactLtoEntries(object __instance)
@@ -488,9 +446,7 @@ namespace MapTabCustomizer
         internal static void MarkColonistsDirty()
         {
             if (!Active || markColonistsDirtyMethod == null) return;
-            System.Type tacticUtils = AccessTools.TypeByName("TacticalGroups.TacticUtils");
-            FieldInfo barField = tacticUtils == null ? null : AccessTools.Field(tacticUtils, "TacticalColonistBar");
-            object bar = barField?.GetValue(null);
+            object bar = tacticalColonistBarField?.GetValue(null);
             if (bar != null) markColonistsDirtyMethod.Invoke(bar, null);
         }
     }
