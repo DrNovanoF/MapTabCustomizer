@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <MTC_EditTitle>Personnaliser l’onglet de la carte</MTC_EditTitle>
+  <MTC_Label>Texte</MTC_Label>
+  <MTC_Icon>Icône</MTC_Icon>
+  <MTC_Clear>Effacer</MTC_Clear>
+  <MTC_Save>Enregistrer</MTC_Save>
+  <MTC_RightClickHint>Clic droit pour personnaliser cet onglet de carte.</MTC_RightClickHint>
+  <MTC_Icon_None>Aucune icône</MTC_Icon_None>
+  <MTC_Icon_Home>Colonie</MTC_Icon_Home>
+  <MTC_Icon_Industry>Industrie</MTC_Icon_Industry>
+  <MTC_Icon_Medical>Médical</MTC_Icon_Medical>
+  <MTC_Icon_Defense>Défense</MTC_Icon_Defense>
+  <MTC_Icon_Research>Recherche</MTC_Icon_Research>
+  <MTC_ShowOnlyOnHover>Afficher les labels uniquement au survol</MTC_ShowOnlyOnHover>
+  <MTC_ShowOnlyOnHoverDesc>Masque le texte et l’icône d’une map jusqu’au survol de son groupe de colons.</MTC_ShowOnlyOnHoverDesc>
+  <MTC_ReplacePawnPortraits>Remplacer les portraits par des onglets de taille fixe</MTC_ReplacePawnPortraits>
+  <MTC_ReplacePawnPortraitsDesc>Remplace la barre des colons par un onglet compact de taille fixe pour chaque map, avec l’icône choisie. La taille ne dépend plus du nombre de pawns.</MTC_ReplacePawnPortraitsDesc>
+  <MTC_CompactTabHint>Clic gauche pour ouvrir cette map. Clic droit pour personnaliser son onglet.</MTC_CompactTabHint>
+</LanguageData>

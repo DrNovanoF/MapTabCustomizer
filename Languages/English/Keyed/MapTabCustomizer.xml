@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <MTC_EditTitle>Edit map tab</MTC_EditTitle>
+  <MTC_Label>Label</MTC_Label>
+  <MTC_Icon>Icon</MTC_Icon>
+  <MTC_Clear>Clear</MTC_Clear>
+  <MTC_Save>Save</MTC_Save>
+  <MTC_RightClickHint>Right-click to customize this map tab.</MTC_RightClickHint>
+  <MTC_Icon_None>No icon</MTC_Icon_None>
+  <MTC_Icon_Home>Home</MTC_Icon_Home>
+  <MTC_Icon_Industry>Industry</MTC_Icon_Industry>
+  <MTC_Icon_Medical>Medical</MTC_Icon_Medical>
+  <MTC_Icon_Defense>Defense</MTC_Icon_Defense>
+  <MTC_Icon_Research>Research</MTC_Icon_Research>
+  <MTC_ShowOnlyOnHover>Show labels only on hover</MTC_ShowOnlyOnHover>
+  <MTC_ShowOnlyOnHoverDesc>Hide map labels and icons until the pointer is over their colonist group.</MTC_ShowOnlyOnHoverDesc>
+  <MTC_ReplacePawnPortraits>Replace pawn portraits with fixed-size map tabs</MTC_ReplacePawnPortraits>
+  <MTC_ReplacePawnPortraitsDesc>Replace the colonist bar with one compact, fixed-size tab per map, using the selected map icon. Tab size no longer depends on pawn count.</MTC_ReplacePawnPortraitsDesc>
+  <MTC_CompactTabHint>Left-click to open this map. Right-click to customize its tab.</MTC_CompactTabHint>
+</LanguageData>
