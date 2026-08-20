@@ -26,4 +26,6 @@
   <MTC_HideLtoButtonsDesc>Masque complètement les boutons de groupes de Colony Groups. Ce réglage est prioritaire sur l’affichage limité à la map active.</MTC_HideLtoButtonsDesc>
   <MTC_ShowOnlyActiveLtoButtons>Afficher les boutons LTO uniquement pour la map active</MTC_ShowOnlyActiveLtoButtons>
   <MTC_ShowOnlyActiveLtoButtonsDesc>Masque les boutons Colony Groups appartenant aux maps inactives. Sans effet lorsque tous les boutons LTO sont masqués.</MTC_ShowOnlyActiveLtoButtonsDesc>
+  <MTC_HideIconInLabel>Masquer l’icône dans les labels</MTC_HideIconInLabel>
+  <MTC_HideIconInLabelDesc>Retire la petite icône placée devant le texte afin de lui donner plus d’espace horizontal. L’icône principale de l’onglet compact reste visible.</MTC_HideIconInLabelDesc>
 </LanguageData>

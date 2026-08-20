@@ -11,6 +11,7 @@ namespace MapTabCustomizer
         internal bool AlwaysShowActiveLabel;
         internal bool HideLtoButtons;
         internal bool ShowOnlyActiveLtoButtons;
+        internal bool HideIconInLabel;
 
         public override void ExposeData()
         {
@@ -20,6 +21,7 @@ namespace MapTabCustomizer
             Scribe_Values.Look(ref AlwaysShowActiveLabel, "alwaysShowActiveLabel", false);
             Scribe_Values.Look(ref HideLtoButtons, "hideLtoButtons", false);
             Scribe_Values.Look(ref ShowOnlyActiveLtoButtons, "showOnlyActiveLtoButtons", false);
+            Scribe_Values.Look(ref HideIconInLabel, "hideIconInLabel", false);
             base.ExposeData();
         }
     }
@@ -51,6 +53,11 @@ namespace MapTabCustomizer
                 "MTC_AlwaysShowActiveLabel".Translate(),
                 ref Settings.AlwaysShowActiveLabel,
                 "MTC_AlwaysShowActiveLabelDesc".Translate());
+            listing.Gap();
+            listing.CheckboxLabeled(
+                "MTC_HideIconInLabel".Translate(),
+                ref Settings.HideIconInLabel,
+                "MTC_HideIconInLabelDesc".Translate());
             listing.Gap();
             bool previousCompactMode = Settings.ReplacePawnPortraitsWithIcon;
             listing.CheckboxLabeled(

@@ -41,6 +41,7 @@ namespace MapTabCustomizer
                 .Where(entry => entry.map != null)
                 .GroupBy(entry => entry.group);
 
+            MapTabRenderer.BeginCustomizationPass();
             foreach (IGrouping<int, ColonistBar.Entry> group in mapGroups)
             {
                 Map map = group.First().map;
@@ -48,6 +49,28 @@ namespace MapTabCustomizer
                 Rect groupRect = (Rect)GroupFrameRect(Drawer(__instance), new object[] { group.Key });
                 MapTabRenderer.DrawCustomization(map, customization, groupRect);
             }
+            MapTabRenderer.EndCustomizationPass();
+        }
+    }
+
+    [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
+    internal static class DevModeColonistBarOffsetPatch
+    {
+        private const float DefaultOffset = 28f;
+        private const float AdditionalDevToolbarOffset = 48f;
+
+        [HarmonyPriority(Priority.First)]
+        private static void Prefix(out Matrix4x4 __state)
+        {
+            __state = GUI.matrix;
+            float offset = DefaultOffset + (Prefs.DevMode ? AdditionalDevToolbarOffset : 0f);
+            GUI.matrix = Matrix4x4.Translate(new Vector3(0f, offset, 0f)) * __state;
+        }
+
+        private static System.Exception Finalizer(System.Exception __exception, Matrix4x4 __state)
+        {
+            GUI.matrix = __state;
+            return __exception;
         }
     }
 
@@ -63,6 +86,24 @@ namespace MapTabCustomizer
 
     internal static class MapTabRenderer
     {
+        private static Map expandedHoverMap;
+        private static bool hasPendingHoveredLabel;
+        private static Rect pendingHoveredLabelRect;
+        private static string pendingHoveredLabelText;
+        private static Texture2D pendingHoveredLabelIcon;
+
+        internal static void BeginCustomizationPass()
+        {
+            hasPendingHoveredLabel = false;
+        }
+
+        internal static void EndCustomizationPass()
+        {
+            if (!hasPendingHoveredLabel) return;
+            DrawLabelContents(pendingHoveredLabelRect, pendingHoveredLabelText, pendingHoveredLabelIcon);
+            hasPendingHoveredLabel = false;
+        }
+
         internal static bool UseCompactMapTabs => MapTabCustomizerMod.Settings != null &&
                                                   MapTabCustomizerMod.Settings.ReplacePawnPortraitsWithIcon;
         internal static bool ShowActiveMapPawns => MapTabCustomizerMod.Settings != null &&
@@ -165,10 +206,26 @@ namespace MapTabCustomizer
         {
             bool hasLabel = !customization.CustomLabel.NullOrEmpty();
             Texture2D icon = MapTabIcons.Get(customization.IconIndex);
-            float width = (icon != null ? 22f : 0f) + (hasLabel ? Mathf.Min(130f, Text.CalcSize(customization.CustomLabel).x + 10f) : 0f);
-            Rect editArea = new Rect(groupRect.x, groupRect.yMax + 2f, Mathf.Max(groupRect.width, width), 22f);
-            Rect clickArea = new Rect(groupRect.x, groupRect.y, Mathf.Max(groupRect.width, width), groupRect.height + 24f);
-            bool hovered = Mouse.IsOver(clickArea);
+            Texture2D labelIcon = MapTabCustomizerMod.Settings != null &&
+                                  MapTabCustomizerMod.Settings.HideIconInLabel
+                ? null
+                : icon;
+            const float extraLabelWidth = 10f;
+            float collapsedWidth = groupRect.width + extraLabelWidth;
+            float naturalWidth = (labelIcon != null ? 22f : 0f) +
+                                 (hasLabel ? Text.CalcSize(customization.CustomLabel).x + 10f : 0f);
+            Rect clickArea = new Rect(groupRect.x, groupRect.y, collapsedWidth, groupRect.height + 24f);
+            Rect expandedHoverArea = new Rect(
+                groupRect.x,
+                groupRect.y,
+                Mathf.Max(collapsedWidth, naturalWidth),
+                groupRect.height + 24f);
+            bool hovered = Mouse.IsOver(clickArea) ||
+                           (expandedHoverMap == map && Mouse.IsOver(expandedHoverArea));
+            if (hovered) expandedHoverMap = map;
+            else if (expandedHoverMap == map) expandedHoverMap = null;
+            float displayedWidth = hovered ? Mathf.Max(collapsedWidth, naturalWidth) : collapsedWidth;
+            Rect editArea = new Rect(groupRect.x, groupRect.yMax + 2f, displayedWidth, 22f);
             bool forceActiveLabel = MapTabCustomizerMod.Settings != null &&
                                     MapTabCustomizerMod.Settings.AlwaysShowActiveLabel &&
                                     map == Find.CurrentMap;
@@ -182,20 +239,18 @@ namespace MapTabCustomizer
                 DrawIconReplacement(groupRect, icon);
             }
 
-            if ((hasLabel || icon != null) && showCustomization)
+            if ((hasLabel || labelIcon != null) && showCustomization)
             {
-                Widgets.DrawBoxSolid(editArea, new Color(0.10f, 0.10f, 0.10f, 0.82f));
-                float x = editArea.x + 3f;
-                if (icon != null)
+                if (hovered)
                 {
-                    GUI.DrawTexture(new Rect(x, editArea.y + 2f, 18f, 18f), icon);
-                    x += 22f;
+                    hasPendingHoveredLabel = true;
+                    pendingHoveredLabelRect = editArea;
+                    pendingHoveredLabelText = customization.CustomLabel;
+                    pendingHoveredLabelIcon = labelIcon;
                 }
-                if (hasLabel)
+                else
                 {
-                    Text.Anchor = TextAnchor.MiddleLeft;
-                    Widgets.Label(new Rect(x, editArea.y, editArea.xMax - x - 2f, editArea.height), customization.CustomLabel);
-                    Text.Anchor = TextAnchor.UpperLeft;
+                    DrawLabelContents(editArea, customization.CustomLabel, labelIcon);
                 }
             }
 
@@ -209,17 +264,37 @@ namespace MapTabCustomizer
             }
         }
 
+        private static void DrawLabelContents(Rect editArea, string label, Texture2D icon)
+        {
+            Widgets.DrawBoxSolid(editArea, new Color(0.10f, 0.10f, 0.10f, 0.96f));
+            float x = editArea.x + 3f;
+            if (icon != null)
+            {
+                GUI.DrawTexture(new Rect(x, editArea.y + 2f, 18f, 18f), icon);
+                x += 22f;
+            }
+            if (label.NullOrEmpty()) return;
+
+            TextAnchor previousAnchor = Text.Anchor;
+            bool previousWordWrap = Text.WordWrap;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Text.WordWrap = false;
+            Widgets.Label(new Rect(x, editArea.y, editArea.xMax - x - 2f, editArea.height), label);
+            Text.WordWrap = previousWordWrap;
+            Text.Anchor = previousAnchor;
+        }
+
         private static void DrawIconReplacement(Rect groupRect, Texture2D icon)
         {
             Widgets.DrawBoxSolid(groupRect, new Color(0.10f, 0.10f, 0.10f, 0.98f));
-            Widgets.DrawBox(groupRect);
-            float size = Mathf.Min(42f, Mathf.Min(groupRect.width - 8f, groupRect.height - 8f));
+            Rect compactRect = groupRect;
+            compactRect.height *= 0.75f;
+            compactRect.y = groupRect.center.y - compactRect.height / 2f;
+            Widgets.DrawBoxSolid(compactRect, new Color(0.14f, 0.14f, 0.14f, 1f));
+            Widgets.DrawBox(compactRect);
+            float size = Mathf.Min(42f, Mathf.Min(compactRect.width - 8f, compactRect.height - 8f));
             if (size <= 0f) return;
-            Rect iconRect = new Rect(
-                groupRect.center.x - size / 2f,
-                groupRect.center.y - size / 2f,
-                size,
-                size);
+            Rect iconRect = new Rect(compactRect.center.x - size / 2f, compactRect.center.y - size / 2f, size, size);
             GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit, true);
         }
     }
@@ -283,7 +358,8 @@ namespace MapTabCustomizer
                 AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldDrawLtoGroup)));
             MethodInfo draw = AccessTools.Method(groupType, "Draw", new[] { typeof(Rect) });
             MethodInfo drawOverlays = AccessTools.Method(groupType, "DrawOverlays", new[] { typeof(Rect) });
-            if (draw != null && draw.DeclaringType == groupType) harmony.Patch(draw, prefix: prefix);
+            if (draw != null && draw.DeclaringType == groupType)
+                harmony.Patch(draw, prefix: prefix);
             if (drawOverlays != null && drawOverlays.DeclaringType == groupType)
                 harmony.Patch(drawOverlays, prefix: prefix);
         }
@@ -349,6 +425,7 @@ namespace MapTabCustomizer
                 if (!mapsByGroup.ContainsKey(group)) mapsByGroup.Add(group, map);
             }
 
+            MapTabRenderer.BeginCustomizationPass();
             foreach (KeyValuePair<int, Map> pair in mapsByGroup)
             {
                 Rect rect = (Rect)groupFrameRectMethod.Invoke(drawer, new object[] { pair.Key });
@@ -357,6 +434,7 @@ namespace MapTabCustomizer
                     pair.Value.GetComponent<MapTabCustomizationComponent>(),
                     rect);
             }
+            MapTabRenderer.EndCustomizationPass();
         }
 
         private static void CompactLtoEntries(object __instance)
