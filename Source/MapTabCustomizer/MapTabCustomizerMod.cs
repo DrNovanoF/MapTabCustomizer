@@ -290,6 +290,11 @@ namespace MapTabCustomizer
         private static MethodInfo markColonistsDirtyMethod;
         private static FieldInfo cachedEntriesField;
         private static FieldInfo tacticalColonistBarField;
+        private static FieldInfo hideCreateGroupField;
+        private static FieldInfo createGroupRectField;
+        private static FieldInfo mappedRectField;
+        private static FieldInfo mappedGroupField;
+        private static readonly List<FieldInfo> MappedDrawLocFields = new List<FieldInfo>();
         private static readonly Dictionary<System.Type, PropertyInfo> GroupMapProperties =
             new Dictionary<System.Type, PropertyInfo>();
 
@@ -298,7 +303,11 @@ namespace MapTabCustomizer
             System.Type barType = AccessTools.TypeByName("TacticalGroups.TacticalColonistBar");
             System.Type entryType = AccessTools.TypeByName("TacticalGroups.TacticalColonistBar+Entry");
             System.Type drawerType = AccessTools.TypeByName("TacticalGroups.TacticalGroups_ColonistBarColonistDrawer");
-            if (barType == null || entryType == null || drawerType == null) return;
+            System.Type drawLocsFinderType = AccessTools.TypeByName("TacticalGroups.ColonistBarDrawLocsFinder");
+            System.Type mappedValueType = AccessTools.TypeByName("TacticalGroups.MappedValue");
+            System.Type settingsType = AccessTools.TypeByName("TacticalGroups.TacticalGroupsSettings");
+            if (barType == null || entryType == null || drawerType == null ||
+                drawLocsFinderType == null || mappedValueType == null) return;
 
             entriesProperty = AccessTools.Property(barType, "Entries");
             entryMapField = AccessTools.Field(entryType, "map");
@@ -315,14 +324,35 @@ namespace MapTabCustomizer
             tacticalColonistBarField = tacticUtils == null
                 ? null
                 : AccessTools.Field(tacticUtils, "TacticalColonistBar");
+            hideCreateGroupField = settingsType == null ? null : AccessTools.Field(settingsType, "HideCreateGroup");
+            createGroupRectField = AccessTools.Field(drawLocsFinderType, "createGroupRect");
+            mappedRectField = AccessTools.Field(mappedValueType, "rect");
+            mappedGroupField = AccessTools.Field(mappedValueType, "colonistGroup");
+            MappedDrawLocFields.Clear();
+            foreach (string fieldName in new[] { "pawnGroupDrawLoc", "colonyGroupDrawLoc", "caravanGroupDrawLoc" })
+            {
+                FieldInfo field = AccessTools.Field(drawLocsFinderType, fieldName);
+                if (field != null) MappedDrawLocFields.Add(field);
+            }
+            MethodInfo calculateDrawLocs = AccessTools.Method(
+                drawLocsFinderType,
+                "CalculateDrawLocs",
+                new[] { typeof(List<Rect>), typeof(float).MakeByRefType() });
             if (entriesProperty == null || entryMapField == null || entryGroupField == null ||
                 drawerField == null || groupFrameRectMethod == null || onGui == null ||
-                checkRecacheEntries == null || cachedEntriesField == null) return;
+                checkRecacheEntries == null || cachedEntriesField == null || calculateDrawLocs == null ||
+                createGroupRectField == null || mappedRectField == null || mappedGroupField == null) return;
 
             harmony.Patch(onGui, postfix: new HarmonyMethod(
-                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(DrawLtoMapTabs))));
+                    AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(DrawLtoMapTabs))),
+                prefix: new HarmonyMethod(
+                    AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(PrepareLtoBar))),
+                finalizer: new HarmonyMethod(
+                    AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(RestoreLtoBar))));
             harmony.Patch(checkRecacheEntries, postfix: new HarmonyMethod(
                 AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(CompactLtoEntries))));
+            harmony.Patch(calculateDrawLocs, postfix: new HarmonyMethod(
+                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(NormalizeLtoLayout))));
             if (handleGroupingClicks != null)
                 harmony.Patch(handleGroupingClicks, prefix: new HarmonyMethod(
                     AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldHandleLtoGroupingClicks))));
@@ -377,6 +407,7 @@ namespace MapTabCustomizer
 
         private static bool ShouldShowLtoGroup(object group)
         {
+            if (group == null) return false;
             MapTabCustomizerSettings settings = MapTabCustomizerMod.Settings;
             if (settings == null) return true;
             if (settings.HideLtoButtons) return false;
@@ -400,6 +431,110 @@ namespace MapTabCustomizer
         private static bool ShouldDrawLtoColonist(Map __2)
         {
             return !MapTabRenderer.ShouldReplaceMap(__2);
+        }
+
+        private static void PrepareLtoBar(out bool __state)
+        {
+            __state = hideCreateGroupField != null && (bool)hideCreateGroupField.GetValue(null);
+            if (hideCreateGroupField != null && MapTabCustomizerMod.Settings?.HideLtoButtons == true)
+                hideCreateGroupField.SetValue(null, true);
+        }
+
+        private static System.Exception RestoreLtoBar(System.Exception __exception, bool __state)
+        {
+            if (hideCreateGroupField != null) hideCreateGroupField.SetValue(null, __state);
+            return __exception;
+        }
+
+        private static void NormalizeLtoLayout(List<Rect> __0)
+        {
+            if (__0 == null || __0.Count == 0) return;
+
+            bool suppressCreateGroup = MapTabCustomizerMod.Settings?.HideLtoButtons == true;
+            Rect createGroupRect = (Rect)createGroupRectField.GetValue(null);
+            if (suppressCreateGroup && createGroupRect.width > 0f)
+            {
+                float reservedWidth = createGroupRect.width + 20f;
+                ShiftRectsAfter(__0, createGroupRect.x, -reservedWidth);
+                foreach (FieldInfo field in MappedDrawLocFields)
+                    ShiftMappedRectsAfter(field.GetValue(null) as IList, createGroupRect.x, -reservedWidth);
+                createGroupRect = new Rect(-10000f, -10000f, 0f, 0f);
+                createGroupRectField.SetValue(null, createGroupRect);
+            }
+
+            float minX = float.MaxValue;
+            float maxX = float.MinValue;
+            foreach (Rect rect in __0) IncludeBounds(rect, ref minX, ref maxX);
+            foreach (FieldInfo field in MappedDrawLocFields)
+            {
+                IList mappedValues = field.GetValue(null) as IList;
+                if (mappedValues == null) continue;
+                foreach (object mappedValue in mappedValues)
+                {
+                    object group = mappedGroupField.GetValue(mappedValue);
+                    if (ShouldShowLtoGroup(group))
+                        IncludeBounds((Rect)mappedRectField.GetValue(mappedValue), ref minX, ref maxX);
+                }
+            }
+            if (!suppressCreateGroup) IncludeBounds(createGroupRect, ref minX, ref maxX);
+            if (minX == float.MaxValue) return;
+
+            float offset = UI.screenWidth * 0.5f - (minX + maxX) * 0.5f;
+            ShiftRects(__0, offset);
+            foreach (FieldInfo field in MappedDrawLocFields)
+                ShiftMappedRects(field.GetValue(null) as IList, offset);
+            if (!suppressCreateGroup)
+            {
+                createGroupRect.x += offset;
+                createGroupRectField.SetValue(null, createGroupRect);
+            }
+        }
+
+        private static void IncludeBounds(Rect rect, ref float minX, ref float maxX)
+        {
+            if (rect.width <= 0f) return;
+            minX = Mathf.Min(minX, rect.xMin);
+            maxX = Mathf.Max(maxX, rect.xMax);
+        }
+
+        private static void ShiftRects(List<Rect> rects, float offset)
+        {
+            for (int index = 0; index < rects.Count; index++)
+            {
+                Rect rect = rects[index];
+                rect.x += offset;
+                rects[index] = rect;
+            }
+        }
+
+        private static void ShiftRectsAfter(List<Rect> rects, float x, float offset)
+        {
+            for (int index = 0; index < rects.Count; index++)
+            {
+                Rect rect = rects[index];
+                if (rect.x < x) continue;
+                rect.x += offset;
+                rects[index] = rect;
+            }
+        }
+
+        private static void ShiftMappedRects(IList mappedValues, float offset)
+        {
+            ShiftMappedRectsAfter(mappedValues, float.MinValue, offset);
+        }
+
+        private static void ShiftMappedRectsAfter(IList mappedValues, float x, float offset)
+        {
+            if (mappedValues == null) return;
+            for (int index = 0; index < mappedValues.Count; index++)
+            {
+                object mappedValue = mappedValues[index];
+                Rect rect = (Rect)mappedRectField.GetValue(mappedValue);
+                if (rect.x < x) continue;
+                rect.x += offset;
+                mappedRectField.SetValue(mappedValue, rect);
+                if (mappedValue.GetType().IsValueType) mappedValues[index] = mappedValue;
+            }
         }
 
         private static void DrawLtoMapTabs(object __instance)
