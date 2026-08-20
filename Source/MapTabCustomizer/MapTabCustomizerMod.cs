@@ -37,9 +37,14 @@ namespace MapTabCustomizer
         private static readonly FastInvokeHandler GroupFrameRect =
             MethodInvoker.GetHandler(AccessTools.Method(typeof(ColonistBarColonistDrawer), "GroupFrameRect"));
 
+        private static bool Prefix()
+        {
+            return LtoColonyGroupsCompatibility.Active || MapTabRenderer.ShouldDrawBar;
+        }
+
         private static void Postfix(ColonistBar __instance)
         {
-            if (LtoColonyGroupsCompatibility.Active || Find.CurrentMap == null) return;
+            if (LtoColonyGroupsCompatibility.Active || Find.CurrentMap == null || !MapTabRenderer.ShouldDrawBar) return;
 
             Dictionary<int, Map> mapsByGroup = new Dictionary<int, Map>();
             foreach (ColonistBar.Entry entry in __instance.Entries)
@@ -131,6 +136,15 @@ namespace MapTabCustomizer
                                                   MapTabCustomizerMod.Settings.ReplacePawnPortraitsWithIcon;
         internal static bool ShowActiveMapPawns => MapTabCustomizerMod.Settings != null &&
                                                    MapTabCustomizerMod.Settings.ShowActiveMapPawns;
+        internal static bool ShouldDrawBar => MapTabCustomizerMod.Settings == null ||
+                                              !MapTabCustomizerMod.Settings.ShowBarOnlyOnHover ||
+                                              IsMouseInBarRevealArea();
+
+        private static bool IsMouseInBarRevealArea()
+        {
+            Event current = Event.current;
+            return current != null && current.mousePosition.y >= 0f && current.mousePosition.y <= 220f;
+        }
 
         internal static bool ShouldReplaceMap(Map map)
         {
@@ -433,11 +447,12 @@ namespace MapTabCustomizer
             return !MapTabRenderer.ShouldReplaceMap(__2);
         }
 
-        private static void PrepareLtoBar(out bool __state)
+        private static bool PrepareLtoBar(out bool __state)
         {
             __state = hideCreateGroupField != null && (bool)hideCreateGroupField.GetValue(null);
             if (hideCreateGroupField != null && MapTabCustomizerMod.Settings?.HideLtoButtons == true)
                 hideCreateGroupField.SetValue(null, true);
+            return MapTabRenderer.ShouldDrawBar;
         }
 
         private static System.Exception RestoreLtoBar(System.Exception __exception, bool __state)
@@ -539,7 +554,7 @@ namespace MapTabCustomizer
 
         private static void DrawLtoMapTabs(object __instance)
         {
-            if (Find.CurrentMap == null) return;
+            if (Find.CurrentMap == null || !MapTabRenderer.ShouldDrawBar) return;
             IEnumerable entries = entriesProperty.GetValue(__instance, null) as IEnumerable;
             object drawer = drawerField.GetValue(__instance);
             if (entries == null || drawer == null) return;

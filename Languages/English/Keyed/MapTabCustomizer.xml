@@ -12,6 +12,8 @@
   <MTC_Icon_Medical>Medical</MTC_Icon_Medical>
   <MTC_Icon_Defense>Defense</MTC_Icon_Defense>
   <MTC_Icon_Research>Research</MTC_Icon_Research>
+  <MTC_ShowBarOnlyOnHover>Show the entire map bar only on hover</MTC_ShowBarOnlyOnHover>
+  <MTC_ShowBarOnlyOnHoverDesc>Hide the complete map bar, including labels, pawn portraits and Colony Groups controls, until the pointer reaches its usual area at the top of the screen.</MTC_ShowBarOnlyOnHoverDesc>
   <MTC_ShowOnlyOnHover>Show labels only on hover</MTC_ShowOnlyOnHover>
   <MTC_ShowOnlyOnHoverDesc>Hide map labels and icons until the pointer is over their colonist group.</MTC_ShowOnlyOnHoverDesc>
   <MTC_ReplacePawnPortraits>Replace pawn portraits with fixed-size map tabs</MTC_ReplacePawnPortraits>

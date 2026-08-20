@@ -12,6 +12,8 @@
   <MTC_Icon_Medical>Médical</MTC_Icon_Medical>
   <MTC_Icon_Defense>Défense</MTC_Icon_Defense>
   <MTC_Icon_Research>Recherche</MTC_Icon_Research>
+  <MTC_ShowBarOnlyOnHover>N’afficher toute la barre qu’au survol</MTC_ShowBarOnlyOnHover>
+  <MTC_ShowBarOnlyOnHoverDesc>Masque toute la barre, y compris les labels, portraits et boutons Colony Groups, jusqu’à ce que le pointeur atteigne sa zone habituelle en haut de l’écran.</MTC_ShowBarOnlyOnHoverDesc>
   <MTC_ShowOnlyOnHover>Afficher les labels uniquement au survol</MTC_ShowOnlyOnHover>
   <MTC_ShowOnlyOnHoverDesc>Masque le texte et l’icône d’une map jusqu’au survol de son groupe de colons.</MTC_ShowOnlyOnHoverDesc>
   <MTC_ReplacePawnPortraits>Remplacer les portraits par des onglets de taille fixe</MTC_ReplacePawnPortraits>

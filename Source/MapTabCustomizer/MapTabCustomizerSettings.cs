@@ -6,6 +6,7 @@ namespace MapTabCustomizer
     internal sealed class MapTabCustomizerSettings : ModSettings
     {
         internal bool ShowOnlyOnHover;
+        internal bool ShowBarOnlyOnHover;
         internal bool ReplacePawnPortraitsWithIcon;
         internal bool ShowActiveMapPawns;
         internal bool AlwaysShowActiveLabel;
@@ -21,6 +22,7 @@ namespace MapTabCustomizer
         public override void ExposeData()
         {
             Scribe_Values.Look(ref ShowOnlyOnHover, "showOnlyOnHover", false);
+            Scribe_Values.Look(ref ShowBarOnlyOnHover, "showBarOnlyOnHover", false);
             Scribe_Values.Look(ref ReplacePawnPortraitsWithIcon, "replacePawnPortraitsWithIcon", false);
             Scribe_Values.Look(ref ShowActiveMapPawns, "showActiveMapPawns", false);
             Scribe_Values.Look(ref AlwaysShowActiveLabel, "alwaysShowActiveLabel", false);
@@ -53,10 +55,15 @@ namespace MapTabCustomizer
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
-            Rect viewRect = new Rect(0f, 0f, inRect.width - 18f, 1120f);
+            Rect viewRect = new Rect(0f, 0f, inRect.width - 18f, 1180f);
             Widgets.BeginScrollView(inRect, ref settingsScrollPosition, viewRect);
             Listing_Standard listing = new Listing_Standard();
             listing.Begin(viewRect);
+            listing.CheckboxLabeled(
+                "MTC_ShowBarOnlyOnHover".Translate(),
+                ref Settings.ShowBarOnlyOnHover,
+                "MTC_ShowBarOnlyOnHoverDesc".Translate());
+            listing.Gap();
             listing.CheckboxLabeled(
                 "MTC_ShowOnlyOnHover".Translate(),
                 ref Settings.ShowOnlyOnHover,
