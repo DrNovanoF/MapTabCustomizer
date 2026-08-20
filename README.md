@@ -10,6 +10,7 @@ A RimWorld 1.6 mod that adds a persistent custom label and selectable icon to ev
 - Optional label that remains visible for the active map.
 - Labels receive 10 extra horizontal pixels, remain on one line, and expand above neighboring tabs to reveal their complete text on hover.
 - The small icon inside labels can be hidden to give their text more horizontal space.
+- RGB controls for text and icons, plus independent RGBA controls for label, icon, and tab backgrounds.
 - Optional compact, fixed-size map tabs whose width does not depend on pawn count.
 - Optional native pawn portraits for the active map while inactive maps remain compact.
 - Left-click to switch maps and right-click to customize a tab in compact mode.

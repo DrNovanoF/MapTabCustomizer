@@ -28,4 +28,14 @@
   <MTC_ShowOnlyActiveLtoButtonsDesc>Hide Colony Groups buttons belonging to inactive maps. Has no effect while all LTO buttons are hidden.</MTC_ShowOnlyActiveLtoButtonsDesc>
   <MTC_HideIconInLabel>Hide the icon inside labels</MTC_HideIconInLabel>
   <MTC_HideIconInLabelDesc>Remove the small icon shown before label text, giving the text more horizontal space. The main compact-tab icon remains visible.</MTC_HideIconInLabelDesc>
+  <MTC_DisplayColors>Display colors and transparency</MTC_DisplayColors>
+  <MTC_TextColor>Text</MTC_TextColor>
+  <MTC_IconColor>Icons</MTC_IconColor>
+  <MTC_LabelBackgroundColor>Label background</MTC_LabelBackgroundColor>
+  <MTC_IconBackgroundColor>Icon background</MTC_IconBackgroundColor>
+  <MTC_TabBackgroundColor>Tab background</MTC_TabBackgroundColor>
+  <MTC_ColorRed>Red</MTC_ColorRed>
+  <MTC_ColorGreen>Green</MTC_ColorGreen>
+  <MTC_ColorBlue>Blue</MTC_ColorBlue>
+  <MTC_ColorAlpha>Opacity</MTC_ColorAlpha>
 </LanguageData>

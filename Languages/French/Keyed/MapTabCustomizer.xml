@@ -28,4 +28,14 @@
   <MTC_ShowOnlyActiveLtoButtonsDesc>Masque les boutons Colony Groups appartenant aux maps inactives. Sans effet lorsque tous les boutons LTO sont masqués.</MTC_ShowOnlyActiveLtoButtonsDesc>
   <MTC_HideIconInLabel>Masquer l’icône dans les labels</MTC_HideIconInLabel>
   <MTC_HideIconInLabelDesc>Retire la petite icône placée devant le texte afin de lui donner plus d’espace horizontal. L’icône principale de l’onglet compact reste visible.</MTC_HideIconInLabelDesc>
+  <MTC_DisplayColors>Couleurs et transparence de l’affichage</MTC_DisplayColors>
+  <MTC_TextColor>Texte</MTC_TextColor>
+  <MTC_IconColor>Icônes</MTC_IconColor>
+  <MTC_LabelBackgroundColor>Fond des labels</MTC_LabelBackgroundColor>
+  <MTC_IconBackgroundColor>Fond des icônes</MTC_IconBackgroundColor>
+  <MTC_TabBackgroundColor>Fond des onglets</MTC_TabBackgroundColor>
+  <MTC_ColorRed>Rouge</MTC_ColorRed>
+  <MTC_ColorGreen>Vert</MTC_ColorGreen>
+  <MTC_ColorBlue>Bleu</MTC_ColorBlue>
+  <MTC_ColorAlpha>Opacité</MTC_ColorAlpha>
 </LanguageData>

@@ -84,6 +84,15 @@ namespace MapTabCustomizer
         }
     }
 
+    [HarmonyPatch(typeof(ColonistBarColonistDrawer), "DrawColonist")]
+    internal static class VanillaColonistPortraitPatch
+    {
+        private static bool Prefix(Map __2)
+        {
+            return !MapTabRenderer.ShouldReplaceMap(__2);
+        }
+    }
+
     internal static class MapTabRenderer
     {
         private static Map expandedHoverMap;
@@ -108,6 +117,11 @@ namespace MapTabCustomizer
                                                   MapTabCustomizerMod.Settings.ReplacePawnPortraitsWithIcon;
         internal static bool ShowActiveMapPawns => MapTabCustomizerMod.Settings != null &&
                                                    MapTabCustomizerMod.Settings.ShowActiveMapPawns;
+
+        internal static bool ShouldReplaceMap(Map map)
+        {
+            return map != null && UseCompactMapTabs && (!ShowActiveMapPawns || map != Find.CurrentMap);
+        }
 
         internal static void CompactEntries(IList entries)
         {
@@ -163,8 +177,7 @@ namespace MapTabCustomizer
 
             if (icon != null)
             {
-                GUI.DrawTexture(new Rect(tabRect.center.x - 18f, tabRect.y + 5f, 36f, 36f),
-                    icon, ScaleMode.ScaleToFit, true);
+                DrawTintedIcon(new Rect(tabRect.center.x - 18f, tabRect.y + 5f, 36f, 36f), icon);
             }
             else
             {
@@ -232,8 +245,7 @@ namespace MapTabCustomizer
             bool showCustomization = MapTabCustomizerMod.Settings == null ||
                                      !MapTabCustomizerMod.Settings.ShowOnlyOnHover || hovered || forceActiveLabel;
 
-            bool replaceThisMap = UseCompactMapTabs &&
-                                  (!ShowActiveMapPawns || map != Find.CurrentMap);
+            bool replaceThisMap = ShouldReplaceMap(map);
             if (icon != null && replaceThisMap)
             {
                 DrawIconReplacement(groupRect, icon);
@@ -266,11 +278,11 @@ namespace MapTabCustomizer
 
         private static void DrawLabelContents(Rect editArea, string label, Texture2D icon)
         {
-            Widgets.DrawBoxSolid(editArea, new Color(0.10f, 0.10f, 0.10f, 0.96f));
+            Widgets.DrawBoxSolid(editArea, DisplayLabelBackgroundColor);
             float x = editArea.x + 3f;
             if (icon != null)
             {
-                GUI.DrawTexture(new Rect(x, editArea.y + 2f, 18f, 18f), icon);
+                DrawTintedIcon(new Rect(x, editArea.y + 2f, 18f, 18f), icon);
                 x += 22f;
             }
             if (label.NullOrEmpty()) return;
@@ -279,23 +291,43 @@ namespace MapTabCustomizer
             bool previousWordWrap = Text.WordWrap;
             Text.Anchor = TextAnchor.MiddleLeft;
             Text.WordWrap = false;
+            Color previousGuiColor = GUI.color;
+            GUI.color = DisplayTextColor;
             Widgets.Label(new Rect(x, editArea.y, editArea.xMax - x - 2f, editArea.height), label);
+            GUI.color = previousGuiColor;
             Text.WordWrap = previousWordWrap;
             Text.Anchor = previousAnchor;
         }
 
         private static void DrawIconReplacement(Rect groupRect, Texture2D icon)
         {
-            Widgets.DrawBoxSolid(groupRect, new Color(0.10f, 0.10f, 0.10f, 0.98f));
+            Widgets.DrawBoxSolid(groupRect, DisplayTabBackgroundColor);
             Rect compactRect = groupRect;
             compactRect.height *= 0.75f;
             compactRect.y = groupRect.center.y - compactRect.height / 2f;
-            Widgets.DrawBoxSolid(compactRect, new Color(0.14f, 0.14f, 0.14f, 1f));
+            Widgets.DrawBoxSolid(compactRect, DisplayIconBackgroundColor);
             Widgets.DrawBox(compactRect);
             float size = Mathf.Min(42f, Mathf.Min(compactRect.width - 8f, compactRect.height - 8f));
             if (size <= 0f) return;
             Rect iconRect = new Rect(compactRect.center.x - size / 2f, compactRect.center.y - size / 2f, size, size);
-            GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit, true);
+            DrawTintedIcon(iconRect, icon);
+        }
+
+        private static Color DisplayTextColor => MapTabCustomizerMod.Settings?.TextColor ?? Color.white;
+        private static Color DisplayIconColor => MapTabCustomizerMod.Settings?.IconColor ?? Color.white;
+        private static Color DisplayLabelBackgroundColor => MapTabCustomizerMod.Settings?.LabelBackgroundColor ??
+                                                            new Color(0.10f, 0.10f, 0.10f, 0.96f);
+        private static Color DisplayIconBackgroundColor => MapTabCustomizerMod.Settings?.IconBackgroundColor ??
+                                                           new Color(0.14f, 0.14f, 0.14f, 1f);
+        private static Color DisplayTabBackgroundColor => MapTabCustomizerMod.Settings?.BackgroundColor ??
+                                                          new Color(0.10f, 0.10f, 0.10f, 0.96f);
+
+        private static void DrawTintedIcon(Rect rect, Texture2D icon)
+        {
+            Color previousColor = GUI.color;
+            GUI.color = DisplayIconColor;
+            GUI.DrawTexture(rect, icon, ScaleMode.ScaleToFit, true);
+            GUI.color = previousColor;
         }
     }
 
@@ -326,6 +358,7 @@ namespace MapTabCustomizer
             MethodInfo onGui = AccessTools.Method(barType, "ColonistBarOnGUI");
             MethodInfo checkRecacheEntries = AccessTools.Method(barType, "CheckRecacheEntries");
             MethodInfo handleGroupingClicks = AccessTools.Method(barType, "HandleGroupingClicks");
+            MethodInfo drawLtoColonist = AccessTools.Method(drawerType, "DrawColonist");
             markColonistsDirtyMethod = AccessTools.Method(barType, "MarkColonistsDirty");
             cachedEntriesField = AccessTools.Field(barType, "cachedEntries");
             if (entriesProperty == null || entryMapField == null || entryGroupField == null ||
@@ -341,6 +374,9 @@ namespace MapTabCustomizer
             if (handleGroupingClicks != null)
                 harmony.Patch(handleGroupingClicks, prefix: new HarmonyMethod(
                     AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldHandleLtoGroupingClicks))));
+            if (drawLtoColonist != null)
+                harmony.Patch(drawLtoColonist, prefix: new HarmonyMethod(
+                    AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldDrawLtoColonist))));
             PatchLtoGroupDrawing(harmony, "TacticalGroups.ColonistGroup");
             PatchLtoGroupDrawing(harmony, "TacticalGroups.ColonyGroup");
             PatchLtoGroupDrawing(harmony, "TacticalGroups.PawnGroup");
@@ -402,6 +438,11 @@ namespace MapTabCustomizer
         private static bool ShouldHandleLtoGroupingClicks()
         {
             return MapTabCustomizerMod.Settings == null || !MapTabCustomizerMod.Settings.HideLtoButtons;
+        }
+
+        private static bool ShouldDrawLtoColonist(Map __2)
+        {
+            return !MapTabRenderer.ShouldReplaceMap(__2);
         }
 
         private static bool ShouldRunLtoBar()
