@@ -68,24 +68,26 @@ namespace MapTabCustomizer
         }
     }
 
-    [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
-    internal static class DevModeColonistBarOffsetPatch
+    [HarmonyPatch]
+    internal static class VanillaColonistBarLayoutPatch
     {
-        private const float DefaultOffset = 28f;
-        private const float AdditionalDevToolbarOffset = 48f;
-
-        [HarmonyPriority(Priority.First)]
-        private static void Prefix(out Matrix4x4 __state)
+        private static MethodBase TargetMethod()
         {
-            __state = GUI.matrix;
-            float offset = DefaultOffset + (Prefs.DevMode ? AdditionalDevToolbarOffset : 0f);
-            GUI.matrix = Matrix4x4.Translate(new Vector3(0f, offset, 0f)) * __state;
+            return AccessTools.Method(
+                typeof(ColonistBarDrawLocsFinder),
+                "CalculateDrawLocs",
+                new[] { typeof(List<Vector2>), typeof(float).MakeByRefType(), typeof(int) });
         }
 
-        private static System.Exception Finalizer(System.Exception __exception, Matrix4x4 __state)
+        private static void Postfix(List<Vector2> __0)
         {
-            GUI.matrix = __state;
-            return __exception;
+            if (LtoColonyGroupsCompatibility.Active || __0 == null) return;
+            for (int index = 0; index < __0.Count; index++)
+            {
+                Vector2 position = __0[index];
+                position.y += MapTabRenderer.BarVerticalOffset;
+                __0[index] = position;
+            }
         }
     }
 
@@ -108,8 +110,20 @@ namespace MapTabCustomizer
         }
     }
 
+    [HarmonyPatch(typeof(ColonistBarColonistDrawer), "GroupFrameRect")]
+    internal static class VanillaGroupFrameRectPatch
+    {
+        private static void Postfix(ref Rect __result)
+        {
+            if (!LtoColonyGroupsCompatibility.Active)
+                MapTabRenderer.CorrectShiftedGroupFrame(ref __result);
+        }
+    }
+
     internal static class MapTabRenderer
     {
+        private const float DefaultVerticalOffset = 28f;
+        private const float AdditionalDevToolbarOffset = 48f;
         private static Map expandedHoverMap;
         private static bool hasPendingHoveredLabel;
         private static Rect pendingHoveredLabelRect;
@@ -136,6 +150,15 @@ namespace MapTabCustomizer
                                                   MapTabCustomizerMod.Settings.ReplacePawnPortraitsWithIcon;
         internal static bool ShowActiveMapPawns => MapTabCustomizerMod.Settings != null &&
                                                    MapTabCustomizerMod.Settings.ShowActiveMapPawns;
+        internal static float BarVerticalOffset => DefaultVerticalOffset +
+                                                   (Prefs.DevMode ? AdditionalDevToolbarOffset : 0f);
+
+        internal static void CorrectShiftedGroupFrame(ref Rect rect)
+        {
+            float offset = BarVerticalOffset;
+            rect.y += offset;
+            rect.height = Mathf.Max(0f, rect.height - offset);
+        }
         internal static bool ShouldDrawBar => MapTabCustomizerMod.Settings == null ||
                                               !MapTabCustomizerMod.Settings.ShowBarOnlyOnHover ||
                                               IsMouseInBarRevealArea();
@@ -365,6 +388,8 @@ namespace MapTabCustomizer
                     AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(RestoreLtoBar))));
             harmony.Patch(checkRecacheEntries, postfix: new HarmonyMethod(
                 AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(CompactLtoEntries))));
+            harmony.Patch(groupFrameRectMethod, postfix: new HarmonyMethod(
+                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(CorrectLtoGroupFrame))));
             harmony.Patch(calculateDrawLocs, postfix: new HarmonyMethod(
                 AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(NormalizeLtoLayout))));
             if (handleGroupingClicks != null)
@@ -447,6 +472,11 @@ namespace MapTabCustomizer
             return !MapTabRenderer.ShouldReplaceMap(__2);
         }
 
+        private static void CorrectLtoGroupFrame(ref Rect __result)
+        {
+            MapTabRenderer.CorrectShiftedGroupFrame(ref __result);
+        }
+
         private static bool PrepareLtoBar(out bool __state)
         {
             __state = hideCreateGroupField != null && (bool)hideCreateGroupField.GetValue(null);
@@ -476,6 +506,12 @@ namespace MapTabCustomizer
                 createGroupRect = new Rect(-10000f, -10000f, 0f, 0f);
                 createGroupRectField.SetValue(null, createGroupRect);
             }
+
+            float verticalOffset = MapTabRenderer.BarVerticalOffset;
+            ShiftRectsVertically(__0, verticalOffset);
+            foreach (FieldInfo field in MappedDrawLocFields)
+                ShiftMappedRectsVertically(field.GetValue(null) as IList, verticalOffset);
+            if (!suppressCreateGroup) createGroupRect.y += verticalOffset;
 
             float minX = float.MaxValue;
             float maxX = float.MinValue;
@@ -533,6 +569,16 @@ namespace MapTabCustomizer
             }
         }
 
+        private static void ShiftRectsVertically(List<Rect> rects, float offset)
+        {
+            for (int index = 0; index < rects.Count; index++)
+            {
+                Rect rect = rects[index];
+                rect.y += offset;
+                rects[index] = rect;
+            }
+        }
+
         private static void ShiftMappedRects(IList mappedValues, float offset)
         {
             ShiftMappedRectsAfter(mappedValues, float.MinValue, offset);
@@ -547,6 +593,19 @@ namespace MapTabCustomizer
                 Rect rect = (Rect)mappedRectField.GetValue(mappedValue);
                 if (rect.x < x) continue;
                 rect.x += offset;
+                mappedRectField.SetValue(mappedValue, rect);
+                if (mappedValue.GetType().IsValueType) mappedValues[index] = mappedValue;
+            }
+        }
+
+        private static void ShiftMappedRectsVertically(IList mappedValues, float offset)
+        {
+            if (mappedValues == null) return;
+            for (int index = 0; index < mappedValues.Count; index++)
+            {
+                object mappedValue = mappedValues[index];
+                Rect rect = (Rect)mappedRectField.GetValue(mappedValue);
+                rect.y += offset;
                 mappedRectField.SetValue(mappedValue, rect);
                 if (mappedValue.GetType().IsValueType) mappedValues[index] = mappedValue;
             }
