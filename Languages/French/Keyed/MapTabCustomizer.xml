@@ -21,6 +21,8 @@
   <MTC_CompactTabHint>Clic gauche pour ouvrir cette map. Clic droit pour personnaliser son onglet.</MTC_CompactTabHint>
   <MTC_ShowActiveMapPawns>Afficher les portraits normaux de la map active</MTC_ShowActiveMapPawns>
   <MTC_ShowActiveMapPawnsDesc>En mode taille fixe, restaure les portraits natifs des pawns pour la map active. Les maps inactives restent des onglets compacts avec icône.</MTC_ShowActiveMapPawnsDesc>
+  <MTC_HideSlavePawns>Masquer les esclaves dans les onglets</MTC_HideSlavePawns>
+  <MTC_HideSlavePawnsDesc>Retire les portraits des esclaves de la barre des maps. En mode taille fixe, une map ne contenant que des esclaves conserve son onglet compact.</MTC_HideSlavePawnsDesc>
   <MTC_AlwaysShowActiveLabel>Toujours afficher le label de la map active</MTC_AlwaysShowActiveLabel>
   <MTC_AlwaysShowActiveLabelDesc>Maintient le texte et l’icône de la map active visibles même lorsque les labels ne doivent apparaître qu’au survol.</MTC_AlwaysShowActiveLabelDesc>
   <MTC_LtoOptions>LTO Colony Groups</MTC_LtoOptions>

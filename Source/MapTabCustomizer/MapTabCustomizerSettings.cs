@@ -9,6 +9,7 @@ namespace MapTabCustomizer
         internal bool ShowBarOnlyOnHover;
         internal bool ReplacePawnPortraitsWithIcon;
         internal bool ShowActiveMapPawns;
+        internal bool HideSlavePawns;
         internal bool AlwaysShowActiveLabel;
         internal bool HideLtoButtons;
         internal bool ShowOnlyActiveLtoButtons;
@@ -25,6 +26,7 @@ namespace MapTabCustomizer
             Scribe_Values.Look(ref ShowBarOnlyOnHover, "showBarOnlyOnHover", false);
             Scribe_Values.Look(ref ReplacePawnPortraitsWithIcon, "replacePawnPortraitsWithIcon", false);
             Scribe_Values.Look(ref ShowActiveMapPawns, "showActiveMapPawns", false);
+            Scribe_Values.Look(ref HideSlavePawns, "hideSlavePawns", false);
             Scribe_Values.Look(ref AlwaysShowActiveLabel, "alwaysShowActiveLabel", false);
             Scribe_Values.Look(ref HideLtoButtons, "hideLtoButtons", false);
             Scribe_Values.Look(ref ShowOnlyActiveLtoButtons, "showOnlyActiveLtoButtons", false);
@@ -55,7 +57,7 @@ namespace MapTabCustomizer
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
-            Rect viewRect = new Rect(0f, 0f, inRect.width - 18f, 1180f);
+            Rect viewRect = new Rect(0f, 0f, inRect.width - 18f, 1230f);
             Widgets.BeginScrollView(inRect, ref settingsScrollPosition, viewRect);
             Listing_Standard listing = new Listing_Standard();
             listing.Begin(viewRect);
@@ -96,6 +98,14 @@ namespace MapTabCustomizer
                 "MTC_ShowActiveMapPawnsDesc".Translate());
             GUI.enabled = previousEnabled;
             if (previousActiveMapMode != Settings.ShowActiveMapPawns)
+                MapTabRenderer.NotifyLayoutChanged();
+            listing.Gap();
+            bool previousHideSlavePawns = Settings.HideSlavePawns;
+            listing.CheckboxLabeled(
+                "MTC_HideSlavePawns".Translate(),
+                ref Settings.HideSlavePawns,
+                "MTC_HideSlavePawnsDesc".Translate());
+            if (previousHideSlavePawns != Settings.HideSlavePawns)
                 MapTabRenderer.NotifyLayoutChanged();
             listing.GapLine();
             listing.Label("MTC_LtoOptions".Translate());

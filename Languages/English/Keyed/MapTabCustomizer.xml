@@ -21,6 +21,8 @@
   <MTC_CompactTabHint>Left-click to open this map. Right-click to customize its tab.</MTC_CompactTabHint>
   <MTC_ShowActiveMapPawns>Show the active map's normal pawn portraits</MTC_ShowActiveMapPawns>
   <MTC_ShowActiveMapPawnsDesc>In fixed-size mode, restore the native pawn portraits for the active map. Inactive maps remain compact icon tabs.</MTC_ShowActiveMapPawnsDesc>
+  <MTC_HideSlavePawns>Hide slaves from map tabs</MTC_HideSlavePawns>
+  <MTC_HideSlavePawnsDesc>Remove slave portraits from the map bar. In fixed-size mode, a map containing only slaves keeps its compact map tab.</MTC_HideSlavePawnsDesc>
   <MTC_AlwaysShowActiveLabel>Always show the active map's label</MTC_AlwaysShowActiveLabel>
   <MTC_AlwaysShowActiveLabelDesc>Keep the active map's label and icon visible even when labels are configured to appear only on hover.</MTC_AlwaysShowActiveLabelDesc>
   <MTC_LtoOptions>LTO Colony Groups</MTC_LtoOptions>

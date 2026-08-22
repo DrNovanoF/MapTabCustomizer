@@ -39,6 +39,7 @@ namespace MapTabCustomizer
 
         private static bool Prefix()
         {
+            MapTabRenderer.EnsureCurrentMapLayout();
             return LtoColonyGroupsCompatibility.Active || MapTabRenderer.ShouldDrawBar;
         }
 
@@ -71,12 +72,22 @@ namespace MapTabCustomizer
     [HarmonyPatch]
     internal static class VanillaColonistBarLayoutPatch
     {
+        private static readonly AccessTools.FieldRef<ColonistBar, List<ColonistBar.Entry>> CachedEntries =
+            AccessTools.FieldRefAccess<ColonistBar, List<ColonistBar.Entry>>("cachedEntries");
+
         private static MethodBase TargetMethod()
         {
             return AccessTools.Method(
                 typeof(ColonistBarDrawLocsFinder),
                 "CalculateDrawLocs",
                 new[] { typeof(List<Vector2>), typeof(float).MakeByRefType(), typeof(int) });
+        }
+
+        private static void Prefix()
+        {
+            ColonistBar bar = Find.ColonistBar;
+            if (!LtoColonyGroupsCompatibility.Active && bar != null && MapTabRenderer.ShouldFilterEntries)
+                MapTabRenderer.FilterEntries(CachedEntries(bar));
         }
 
         private static void Postfix(List<Vector2> __0)
@@ -91,22 +102,12 @@ namespace MapTabCustomizer
         }
     }
 
-    [HarmonyPatch(typeof(ColonistBar), "CheckRecacheEntries")]
-    internal static class VanillaColonistBarRecachePatch
-    {
-        private static void Postfix(ColonistBar __instance)
-        {
-            if (LtoColonyGroupsCompatibility.Active || !MapTabRenderer.UseCompactMapTabs) return;
-            MapTabRenderer.CompactEntries(__instance.Entries);
-        }
-    }
-
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), "DrawColonist")]
     internal static class VanillaColonistPortraitPatch
     {
-        private static bool Prefix(Map __2)
+        private static bool Prefix(Pawn __1, Map __2)
         {
-            return !MapTabRenderer.ShouldReplaceMap(__2);
+            return MapTabRenderer.ShouldDrawPawn(__1, __2);
         }
     }
 
@@ -129,8 +130,12 @@ namespace MapTabCustomizer
         private static Rect pendingHoveredLabelRect;
         private static string pendingHoveredLabelText;
         private static Texture2D pendingHoveredLabelIcon;
+        private static Map layoutCurrentMap;
         private static readonly Dictionary<System.Type, FieldInfo> EntryMapFields =
             new Dictionary<System.Type, FieldInfo>();
+        private static readonly Dictionary<System.Type, FieldInfo> EntryPawnFields =
+            new Dictionary<System.Type, FieldInfo>();
+        private static readonly HashSet<Map> SlaveOnlyMaps = new HashSet<Map>();
 
         internal static void BeginCustomizationPass()
         {
@@ -148,10 +153,20 @@ namespace MapTabCustomizer
 
         internal static bool UseCompactMapTabs => MapTabCustomizerMod.Settings != null &&
                                                   MapTabCustomizerMod.Settings.ReplacePawnPortraitsWithIcon;
+        internal static bool HideSlavePawns => MapTabCustomizerMod.Settings?.HideSlavePawns == true;
+        internal static bool ShouldFilterEntries => UseCompactMapTabs || HideSlavePawns;
         internal static bool ShowActiveMapPawns => MapTabCustomizerMod.Settings != null &&
                                                    MapTabCustomizerMod.Settings.ShowActiveMapPawns;
         internal static float BarVerticalOffset => DefaultVerticalOffset +
                                                    (Prefs.DevMode ? AdditionalDevToolbarOffset : 0f);
+
+        internal static void EnsureCurrentMapLayout()
+        {
+            Map currentMap = Find.CurrentMap;
+            if (layoutCurrentMap == currentMap) return;
+            layoutCurrentMap = currentMap;
+            if (UseCompactMapTabs && ShowActiveMapPawns) NotifyLayoutChanged();
+        }
 
         internal static void CorrectShiftedGroupFrame(ref Rect rect)
         {
@@ -171,26 +186,71 @@ namespace MapTabCustomizer
 
         internal static bool ShouldReplaceMap(Map map)
         {
-            return map != null && UseCompactMapTabs && (!ShowActiveMapPawns || map != Find.CurrentMap);
+            return map != null && UseCompactMapTabs &&
+                   (!ShowActiveMapPawns || map != Find.CurrentMap || SlaveOnlyMaps.Contains(map));
         }
 
-        internal static void CompactEntries(IList entries)
+        internal static bool ShouldDrawPawn(Pawn pawn, Map map)
+        {
+            return !ShouldReplaceMap(map) && (!HideSlavePawns || pawn == null || !pawn.IsSlave);
+        }
+
+        internal static void FilterEntries(IList entries)
         {
             if (entries == null) return;
+            SlaveOnlyMaps.Clear();
+            HashSet<Map> mapsWithEntries = new HashSet<Map>();
+            HashSet<Map> mapsWithNonSlaveEntries = new HashSet<Map>();
+            if (HideSlavePawns)
+            {
+                foreach (object entry in entries)
+                {
+                    GetEntryData(entry, out Map map, out Pawn pawn);
+                    if (map == null) continue;
+                    mapsWithEntries.Add(map);
+                    if (pawn == null || !pawn.IsSlave) mapsWithNonSlaveEntries.Add(map);
+                }
+                foreach (Map map in mapsWithEntries)
+                    if (!mapsWithNonSlaveEntries.Contains(map)) SlaveOnlyMaps.Add(map);
+
+                HashSet<Map> retainedSlaveRepresentatives = new HashSet<Map>();
+                for (int index = entries.Count - 1; index >= 0; index--)
+                {
+                    GetEntryData(entries[index], out Map map, out Pawn pawn);
+                    if (pawn == null || !pawn.IsSlave) continue;
+                    if (UseCompactMapTabs && map != null && SlaveOnlyMaps.Contains(map) &&
+                        retainedSlaveRepresentatives.Add(map)) continue;
+                    entries.RemoveAt(index);
+                }
+            }
+
+            if (!UseCompactMapTabs) return;
             HashSet<Map> seenMaps = new HashSet<Map>();
             for (int index = entries.Count - 1; index >= 0; index--)
             {
                 object entry = entries[index];
-                System.Type entryType = entry.GetType();
-                if (!EntryMapFields.TryGetValue(entryType, out FieldInfo mapField))
-                {
-                    mapField = AccessTools.Field(entryType, "map");
-                    EntryMapFields.Add(entryType, mapField);
-                }
-                Map map = mapField?.GetValue(entry) as Map;
-                if (map == null || (ShowActiveMapPawns && map == Find.CurrentMap)) continue;
+                GetEntryData(entry, out Map map, out Pawn pawn);
+                if (map == null || (ShowActiveMapPawns && map == Find.CurrentMap &&
+                                    !SlaveOnlyMaps.Contains(map))) continue;
                 if (!seenMaps.Add(map)) entries.RemoveAt(index);
             }
+        }
+
+        private static void GetEntryData(object entry, out Map map, out Pawn pawn)
+        {
+            System.Type entryType = entry.GetType();
+            if (!EntryMapFields.TryGetValue(entryType, out FieldInfo mapField))
+            {
+                mapField = AccessTools.Field(entryType, "map");
+                EntryMapFields.Add(entryType, mapField);
+            }
+            if (!EntryPawnFields.TryGetValue(entryType, out FieldInfo pawnField))
+            {
+                pawnField = AccessTools.Field(entryType, "pawn");
+                EntryPawnFields.Add(entryType, pawnField);
+            }
+            map = mapField?.GetValue(entry) as Map;
+            pawn = pawnField?.GetValue(entry) as Pawn;
         }
 
         internal static void NotifyLayoutChanged()
@@ -352,7 +412,6 @@ namespace MapTabCustomizer
             drawerField = AccessTools.Field(barType, "drawer");
             groupFrameRectMethod = AccessTools.Method(drawerType, "GroupFrameRect");
             MethodInfo onGui = AccessTools.Method(barType, "ColonistBarOnGUI");
-            MethodInfo checkRecacheEntries = AccessTools.Method(barType, "CheckRecacheEntries");
             MethodInfo handleGroupingClicks = AccessTools.Method(barType, "HandleGroupingClicks");
             MethodInfo drawLtoColonist = AccessTools.Method(drawerType, "DrawColonist");
             markColonistsDirtyMethod = AccessTools.Method(barType, "MarkColonistsDirty");
@@ -377,7 +436,7 @@ namespace MapTabCustomizer
                 new[] { typeof(List<Rect>), typeof(float).MakeByRefType() });
             if (entriesProperty == null || entryMapField == null || entryGroupField == null ||
                 drawerField == null || groupFrameRectMethod == null || onGui == null ||
-                checkRecacheEntries == null || cachedEntriesField == null || calculateDrawLocs == null ||
+                cachedEntriesField == null || calculateDrawLocs == null ||
                 createGroupRectField == null || mappedRectField == null || mappedGroupField == null) return;
 
             harmony.Patch(onGui, postfix: new HarmonyMethod(
@@ -386,12 +445,13 @@ namespace MapTabCustomizer
                     AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(PrepareLtoBar))),
                 finalizer: new HarmonyMethod(
                     AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(RestoreLtoBar))));
-            harmony.Patch(checkRecacheEntries, postfix: new HarmonyMethod(
-                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(CompactLtoEntries))));
             harmony.Patch(groupFrameRectMethod, postfix: new HarmonyMethod(
                 AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(CorrectLtoGroupFrame))));
-            harmony.Patch(calculateDrawLocs, postfix: new HarmonyMethod(
-                AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(NormalizeLtoLayout))));
+            harmony.Patch(calculateDrawLocs,
+                prefix: new HarmonyMethod(
+                    AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(PrepareLtoLayout))),
+                postfix: new HarmonyMethod(
+                    AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(NormalizeLtoLayout))));
             if (handleGroupingClicks != null)
                 harmony.Patch(handleGroupingClicks, prefix: new HarmonyMethod(
                     AccessTools.Method(typeof(LtoColonyGroupsCompatibility), nameof(ShouldHandleLtoGroupingClicks))));
@@ -467,9 +527,9 @@ namespace MapTabCustomizer
             return MapTabCustomizerMod.Settings == null || !MapTabCustomizerMod.Settings.HideLtoButtons;
         }
 
-        private static bool ShouldDrawLtoColonist(Map __2)
+        private static bool ShouldDrawLtoColonist(Pawn __1, Map __2)
         {
-            return !MapTabRenderer.ShouldReplaceMap(__2);
+            return MapTabRenderer.ShouldDrawPawn(__1, __2);
         }
 
         private static void CorrectLtoGroupFrame(ref Rect __result)
@@ -479,6 +539,7 @@ namespace MapTabCustomizer
 
         private static bool PrepareLtoBar(out bool __state)
         {
+            MapTabRenderer.EnsureCurrentMapLayout();
             __state = hideCreateGroupField != null && (bool)hideCreateGroupField.GetValue(null);
             if (hideCreateGroupField != null && MapTabCustomizerMod.Settings?.HideLtoButtons == true)
                 hideCreateGroupField.SetValue(null, true);
@@ -489,6 +550,14 @@ namespace MapTabCustomizer
         {
             if (hideCreateGroupField != null) hideCreateGroupField.SetValue(null, __state);
             return __exception;
+        }
+
+        private static void PrepareLtoLayout()
+        {
+            if (!MapTabRenderer.ShouldFilterEntries) return;
+            object bar = tacticalColonistBarField?.GetValue(null);
+            IList entries = bar == null ? null : cachedEntriesField.GetValue(bar) as IList;
+            MapTabRenderer.FilterEntries(entries);
         }
 
         private static void NormalizeLtoLayout(List<Rect> __0)
@@ -643,13 +712,6 @@ namespace MapTabCustomizer
             {
                 MapTabRenderer.EndCustomizationPass();
             }
-        }
-
-        private static void CompactLtoEntries(object __instance)
-        {
-            if (!MapTabRenderer.UseCompactMapTabs) return;
-            IList entries = cachedEntriesField.GetValue(__instance) as IList;
-            MapTabRenderer.CompactEntries(entries);
         }
 
         internal static void MarkColonistsDirty()
